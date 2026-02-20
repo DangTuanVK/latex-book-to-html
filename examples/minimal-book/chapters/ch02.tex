@@ -1,0 +1,65 @@
+\chapter{Analytic Number Theory}
+
+\section{The Riemann Zeta Function}
+
+The Riemann zeta function is defined for $\text{Re}(s) > 1$ by the series:
+\[
+\zeta(s) = \sum_{n=1}^{\infty} \frac{1}{n^s}
+\]
+
+One of the most beautiful formulas in mathematics is the \textbf{Euler product}:
+\[
+\zeta(s) = \prod_{p \text{ prime}} \frac{1}{1 - p^{-s}}, \qquad \text{Re}(s) > 1
+\]
+
+This connects the zeta function (an analytic object) with prime numbers (an arithmetic object).
+
+\begin{theorem}[Euler, 1737]
+The Euler product formula holds for $\text{Re}(s) > 1$, and in particular,
+taking $s = 1$ shows that the series $\sum_p 1/p$ diverges, giving another
+proof that there are infinitely many primes.
+\end{theorem}
+
+\section{Special Values}
+
+Some famous special values of the zeta function:
+
+\begin{itemize}
+\item $\zeta(2) = \dfrac{\pi^2}{6}$ \quad (Basel problem, solved by Euler in 1734)
+\item $\zeta(4) = \dfrac{\pi^4}{90}$
+\item $\zeta(6) = \dfrac{\pi^6}{945}$
+\item $\zeta(2k) = (-1)^{k+1} \dfrac{(2\pi)^{2k} B_{2k}}{2 (2k)!}$ \quad (general formula with Bernoulli numbers $B_{2k}$)
+\end{itemize}
+
+\section{The Prime Number Theorem}
+
+\begin{definition}
+The \textbf{prime counting function} $\pi(x)$ denotes the number of primes $p \leq x$.
+\end{definition}
+
+\begin{theorem}[Prime Number Theorem (Hadamard, de la Vall\'ee-Poussin, 1896)]
+\[
+\pi(x) \sim \frac{x}{\ln x} \quad \text{as } x \to \infty
+\]
+More precisely, $\lim_{x \to \infty} \frac{\pi(x) \ln x}{x} = 1$.
+\end{theorem}
+
+A table of values comparing $\pi(x)$ with $x / \ln x$:
+
+\begin{center}
+\begin{tabular}{|c|c|c|c|}
+\hline
+$x$ & $\pi(x)$ & $x/\ln x$ & Ratio \\
+\hline
+$10^3$ & 168 & 145 & 1.16 \\
+$10^6$ & 78,498 & 72,382 & 1.08 \\
+$10^9$ & 50,847,534 & 48,254,942 & 1.05 \\
+$10^{12}$ & 37,607,912,018 & 36,191,206,825 & 1.04 \\
+\hline
+\end{tabular}
+\end{center}
+
+The Prime Number Theorem was first conjectured by Gauss \cite{gauss1801} around 1792
+when he was only 15 years old, based on numerical evidence from tables of primes.
+
+See \cite{hardy-wright} for proofs and further discussion.

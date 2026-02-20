@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "latex-book-to-html"
+version = "1.0.0"
+description = "Convert LaTeX book projects into self-contained offline HTML references with math rendering, cards, and tabs."
+readme = "README.md"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Dang Minh Tuan", email = "tuanvietkey@gmail.com"},
+]
+requires-python = ">=3.8"
+keywords = ["latex", "html", "converter", "book", "katex", "math"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Education",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Documentation",
+    "Topic :: Text Processing :: Markup :: LaTeX",
+    "Topic :: Text Processing :: Markup :: HTML",
+]
+
+[project.scripts]
+book2html = "tex2html_book.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/dangtuanvk/latex-book-to-html"
+Repository = "https://github.com/dangtuanvk/latex-book-to-html"
+Issues = "https://github.com/dangtuanvk/latex-book-to-html/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tex2html_book = ["data/skeleton.html"]

@@ -1,0 +1,73 @@
+\chapter{Introduction to Number Theory}
+
+\section{What is Number Theory?}
+
+Number theory is the branch of mathematics that studies the properties of integers.
+It is one of the oldest areas of mathematics, dating back to ancient civilizations.
+
+\begin{definition}
+A \textbf{prime number} is a natural number $p > 1$ that has no positive divisors
+other than $1$ and $p$ itself.
+\end{definition}
+
+The first few primes are: $2, 3, 5, 7, 11, 13, 17, 19, 23, 29, \ldots$
+
+\begin{theorem}[Euclid]
+There are infinitely many prime numbers.
+\end{theorem}
+
+\begin{proof}
+Suppose there are finitely many primes $p_1, p_2, \ldots, p_n$.
+Consider the number $N = p_1 p_2 \cdots p_n + 1$.
+Then $N$ is not divisible by any $p_i$, so either $N$ is prime
+or $N$ has a prime factor not in the list. Contradiction.
+\end{proof}
+
+\section{The Fundamental Theorem of Arithmetic}
+
+\begin{theorem}[Fundamental Theorem of Arithmetic]
+Every integer $n > 1$ can be written uniquely (up to ordering) as a product of primes:
+\[
+n = p_1^{a_1} p_2^{a_2} \cdots p_k^{a_k}
+\]
+where $p_1 < p_2 < \cdots < p_k$ are primes and $a_i \geq 1$.
+\end{theorem}
+
+\begin{example}
+The prime factorization of $360$ is:
+\[
+360 = 2^3 \cdot 3^2 \cdot 5
+\]
+\end{example}
+
+An important function in number theory is the \textbf{Euler's totient function} $\varphi(n)$,
+which counts the number of integers from $1$ to $n$ that are coprime to $n$:
+\[
+\varphi(n) = n \prod_{p \mid n} \left(1 - \frac{1}{p}\right)
+\]
+
+For a prime $p$, we have $\varphi(p) = p - 1$. More generally, $\varphi(p^k) = p^{k-1}(p-1)$.
+\section{Modular Arithmetic}
+
+\begin{definition}
+We say that $a$ is \textbf{congruent} to $b$ modulo $n$, written $a \equiv b \pmod{n}$,
+if $n$ divides $a - b$.
+\end{definition}
+
+\begin{theorem}[Fermat's Little Theorem]
+If $p$ is prime and $\gcd(a, p) = 1$, then
+\[
+a^{p-1} \equiv 1 \pmod{p}
+\]
+\end{theorem}
+
+\begin{theorem}[Euler's Theorem]
+If $\gcd(a, n) = 1$, then
+\[
+a^{\varphi(n)} \equiv 1 \pmod{n}
+\]
+\end{theorem}
+
+This generalizes Fermat's Little Theorem since $\varphi(p) = p - 1$ for primes.
+
+See \cite{euler1748} for Euler's original work and \cite{hardy-wright} for a comprehensive treatment.

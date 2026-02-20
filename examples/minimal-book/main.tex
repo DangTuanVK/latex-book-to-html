@@ -1,0 +1,38 @@
+\documentclass[a4paper,11pt]{book}
+
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage[utf8]{inputenc}
+\usepackage{hyperref}
+
+% Theorem environments
+\newtheorem{theorem}{Theorem}[chapter]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+
+\title{A Minimal Example Book}
+\author{Example Author}
+\date{2026}
+
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+\part{Foundations}
+
+\input{chapters/ch01}
+\input{chapters/ch02}
+
+\begin{thebibliography}{9}
+\bibitem{euler1748}
+L. Euler, \textit{Introductio in analysin infinitorum}, Lausanne, 1748.
+
+\bibitem{gauss1801}
+C.F. Gauss, \textit{Disquisitiones Arithmeticae}, Leipzig, 1801.
+
+\bibitem{hardy-wright}
+G.H. Hardy and E.M. Wright, \textit{An Introduction to the Theory of Numbers}, 6th ed., Oxford University Press, 2008.
+\end{thebibliography}
+
+\end{document}
