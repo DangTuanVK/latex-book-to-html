@@ -1766,14 +1766,20 @@ def latex_to_html(tex_content, environments=None, proof_label='Proof',
         r'\\termshort\{((?:[^{}]|\{[^{}]*\})*)\}',
         r'<strong>\1</strong>', text)
 
-    # Citations
+    # Citations: \cite[optional note]{key1, key2}
+    def _fmt_cite(m):
+        opt = m.group(1)  # optional argument, e.g. "Chapter III"
+        keys = [k.strip() for k in m.group(2).split(',')]
+        data_keys = ' '.join(keys)
+        cite_inner = ', '.join(keys)
+        if opt:
+            cite_inner += ', ' + opt
+        return ('<span class="cite" data-keys="' + data_keys + '">['
+                + cite_inner + ']</span>')
+
     text = re.sub(
-        r'\\cite\{([^}]*)\}',
-        lambda m: (
-            '<span class="cite">['
-            + ', '.join(k.strip() for k in m.group(1).split(','))
-            + ']</span>'
-        ), text)
+        r'\\cite(?:\[([^\]]*)\])?\{([^}]*)\}',
+        _fmt_cite, text)
 
     # Cross-references
     text = re.sub(r'\\[cC]ref\{[^}]*\}', cross_ref_text, text)

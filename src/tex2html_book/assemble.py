@@ -786,11 +786,16 @@ def validate_output(html: str, expected_cards: int, bib_entries: dict) -> bool:
     card_count = len(re.findall(r'class="concept-card"', html))
     cite_count = len(re.findall(r'class="cite"', html))
 
-    # Extract all citation keys used in cards
+    # Extract all citation keys used in cards (prefer data-keys attribute)
     cite_keys = set()
-    for m in re.finditer(r'class="cite"[^>]*>\[([^\]]+)\]', html):
-        for key in m.group(1).split(','):
+    for m in re.finditer(r'data-keys="([^"]*)"', html):
+        for key in m.group(1).split():
             cite_keys.add(key.strip())
+    if not cite_keys:
+        # Fallback for spans without data-keys
+        for m in re.finditer(r'class="cite"[^>]*>\[([^\]]+)\]', html):
+            for key in m.group(1).split(','):
+                cite_keys.add(key.strip())
 
     # Check which cite keys are missing from bib
     missing_refs = cite_keys - set(bib_entries.keys())
