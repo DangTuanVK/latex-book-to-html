@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "latex-book-to-html"
-version = "1.0.0"
+version = "1.2.0"
 description = "Convert LaTeX book projects into self-contained offline HTML references with math rendering, cards, and tabs."
 readme = "README.md"
 license = {text = "Apache-2.0"}

@@ -611,6 +611,73 @@ def build_katex_macros(config: dict) -> str:
 
 
 # ---------------------------------------------------------------------------
+# LaTeX accent conversion
+# ---------------------------------------------------------------------------
+
+_LATEX_ACCENT_MAP = {
+    # \'x — acute
+    "'a": "á", "'e": "é", "'i": "í", "'o": "ó", "'u": "ú",
+    "'A": "Á", "'E": "É", "'I": "Í", "'O": "Ó", "'U": "Ú",
+    "'y": "ý", "'Y": "Ý", "'c": "ć", "'n": "ń", "'s": "ś", "'z": "ź",
+    # \`x — grave
+    "`a": "à", "`e": "è", "`i": "ì", "`o": "ò", "`u": "ù",
+    "`A": "À", "`E": "È", "`I": "Ì", "`O": "Ò", "`U": "Ù",
+    # \"x — umlaut
+    '"a': "ä", '"e': "ë", '"i': "ï", '"o': "ö", '"u': "ü",
+    '"A': "Ä", '"E': "Ë", '"I': "Ï", '"O': "Ö", '"U': "Ü",
+    # \^x — circumflex
+    "^a": "â", "^e": "ê", "^i": "î", "^o": "ô", "^u": "û",
+    "^A": "Â", "^E": "Ê", "^I": "Î", "^O": "Ô", "^U": "Û",
+    # \~x — tilde
+    "~n": "ñ", "~N": "Ñ", "~a": "ã", "~o": "õ",
+    "~A": "Ã", "~O": "Õ",
+    # \v{x} — caron/háček
+    "vc": "č", "vC": "Č", "vs": "š", "vS": "Š", "vz": "ž", "vZ": "Ž",
+    "vr": "ř", "vR": "Ř", "ve": "ě", "vn": "ň",
+    # \c{x} — cedilla
+    "cc": "ç", "cC": "Ç",
+    # \.x — dot above
+    ".z": "ż",
+    # \H{x} — double acute
+    "Ho": "ő", "Hu": "ű",
+    # \={x} — macron
+    "=a": "ā", "=e": "ē", "=i": "ī", "=o": "ō", "=u": "ū",
+    # \k{x} — ogonek
+    "ka": "ą", "ke": "ę",
+    # Special characters
+    "aa": "å", "AA": "Å", "o": "ø", "O": "Ø",
+    "ss": "ß", "l": "ł", "L": "Ł", "i": "ı",
+    "ae": "æ", "AE": "Æ", "oe": "œ", "OE": "Œ",
+}
+
+
+def _latex_accents_to_unicode(text: str) -> str:
+    """Convert LaTeX accent commands to Unicode characters."""
+    # \'{e} or \'{E} style (with braces around letter)
+    def _repl_braced(m):
+        key = m.group(1) + m.group(2)
+        return _LATEX_ACCENT_MAP.get(key, m.group(0))
+
+    text = re.sub(r"""\\(['"`^~.=vckH])\{(\w)\}""", _repl_braced, text)
+
+    # \'e style (no braces, accent + single letter)
+    def _repl_bare(m):
+        key = m.group(1) + m.group(2)
+        return _LATEX_ACCENT_MAP.get(key, m.group(0))
+
+    text = re.sub(r"""\\(['"`^~])([\w])""", _repl_bare, text)
+
+    # Special: \aa, \ss, \o, \l, \ae, \oe, etc.
+    for cmd in ('aa', 'AA', 'ss', 'ae', 'AE', 'oe', 'OE'):
+        text = text.replace(f'\\{cmd}', _LATEX_ACCENT_MAP[cmd])
+    for cmd in ('o', 'O', 'l', 'L', 'i'):
+        # Only replace \o etc. when followed by non-alpha (avoid matching \omega)
+        text = re.sub(r'\\' + cmd + r'(?![a-zA-Z])', _LATEX_ACCENT_MAP[cmd], text)
+
+    return text
+
+
+# ---------------------------------------------------------------------------
 # Parse .bib file
 # ---------------------------------------------------------------------------
 
@@ -637,6 +704,8 @@ def parse_bib(bib_path: str) -> dict:
             fval = re.sub(r'\\textit\{([^}]*)\}', r'\1', fval)
             fval = re.sub(r'\\emph\{([^}]*)\}', r'\1', fval)
             fval = fval.replace('\\-', '')  # hyphenation hints
+            # Convert LaTeX accents to Unicode
+            fval = _latex_accents_to_unicode(fval)
 
             # Protect $...$ math before stripping braces
             math_placeholders = []

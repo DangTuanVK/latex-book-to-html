@@ -333,19 +333,51 @@ def _parse_preamble(preamble):
         info['katex_macros'][f'\\{cmd}'] = f'\\mathrm{{{defn}}}'
 
     # Simple newcommand for math: \newcommand{\Q}{\mathbb{Q}}
+    # Also handles \newcommand{\Qp}{\mathbb{Q}_p} and similar
     for m in re.finditer(
-            r'\\(?:new|renew)command\{\\(\w+)\}\{(\\math\w+\{[^}]*\})\}',
+            r'\\(?:new|renew)command\{\\(\w+)\}\{(\\math\w+\{[^}]*\}[^}]*)\}',
             preamble):
         cmd = m.group(1)
         defn = m.group(2)
         info['katex_macros'][f'\\{cmd}'] = defn
 
-    # \def\Q{\mathbb{Q}}
+    # \newcommand for \mathrm wrappers: \newcommand{\GL}{\mathrm{GL}}
     for m in re.finditer(
-            r'\\def\\(\w+)\{(\\math\w+\{[^}]*\})\}', preamble):
+            r'\\(?:new|renew)command\{\\(\w+)\}\{(\\mathrm\{[^}]*\})\}',
+            preamble):
         cmd = m.group(1)
         defn = m.group(2)
-        info['katex_macros'][f'\\{cmd}'] = defn
+        if f'\\{cmd}' not in info['katex_macros']:
+            info['katex_macros'][f'\\{cmd}'] = defn
+
+    # \newcommand for \mathcal wrappers: \newcommand{\Mhit}{\mathcal{M}_{\mathrm{Hit}}}
+    for m in re.finditer(
+            r'\\(?:new|renew)command\{\\(\w+)\}\{(\\mathcal'
+            r'\{[^}]*\}(?:[_^]\{[^}]*(?:\{[^}]*\}[^}]*)?\})*)\}',
+            preamble):
+        cmd = m.group(1)
+        defn = m.group(2)
+        if f'\\{cmd}' not in info['katex_macros']:
+            info['katex_macros'][f'\\{cmd}'] = defn
+
+    # \def\Q{\mathbb{Q}}
+    for m in re.finditer(
+            r'\\def\\(\w+)\{(\\math\w+\{[^}]*\}[^}]*)\}', preamble):
+        cmd = m.group(1)
+        defn = m.group(2)
+        if f'\\{cmd}' not in info['katex_macros']:
+            info['katex_macros'][f'\\{cmd}'] = defn
+
+    # Macros with arguments: \newcommand{\SOI}[2]{SO_{#1}\!\left(#2\right)}
+    # Body may contain one level of nested braces
+    for m in re.finditer(
+            r'\\(?:new|renew)command\{\\(\w+)\}\[\d+\]'
+            r'\{((?:[^{}]|\{[^{}]*\})*)\}',
+            preamble):
+        cmd = m.group(1)
+        defn = m.group(2).strip()
+        if f'\\{cmd}' not in info['katex_macros'] and '#' in defn:
+            info['katex_macros'][f'\\{cmd}'] = defn
 
     # TikZ preamble: collect \usetikzlibrary and tikz-related \usepackage
     tikz_lines = []
@@ -523,6 +555,30 @@ def resolve_project(main_tex_path):
         # No \begin{document} found — treat everything as body
         project.preamble = ''
         project.body = full_text
+
+    # Step 2b: Inline local .sty files referenced by \usepackage
+    def _inline_local_sty(preamble_text, root):
+        """Append contents of local .sty files to preamble for macro detection."""
+        extra = ''
+        for m in re.finditer(
+                r'\\usepackage(?:\[[^\]]*\])?\{([^}]+)\}', preamble_text):
+            pkg = m.group(1)
+            # Try to find as local file
+            for candidate in [
+                os.path.join(root, pkg + '.sty'),
+                os.path.join(root, pkg),
+            ]:
+                if os.path.isfile(candidate):
+                    try:
+                        with open(candidate, 'r', encoding='utf-8',
+                                  errors='replace') as f:
+                            extra += '\n' + f.read()
+                    except Exception:
+                        pass
+                    break
+        return preamble_text + extra
+
+    project.preamble = _inline_local_sty(project.preamble, root_dir)
 
     # Step 3: Parse preamble
     preamble_info = _parse_preamble(project.preamble)

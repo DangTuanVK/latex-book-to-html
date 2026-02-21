@@ -396,13 +396,27 @@ def protect_math(text):
         counter[0] += 1
         return ph
 
+    # Environments that need \begin{aligned} wrapper (have & columns)
+    _align_envs = {'align', 'align*'}
+
     def save_aligned(m, env):
         content = m.group(0)
+        # Use the specific env name to avoid matching nested environments
+        # (e.g. \begin{pmatrix} inside \begin{align*})
         inner = re.search(
-            r'\\begin\{[^}]*\}(.*?)\\end\{[^}]*\}', content, re.DOTALL)
+            r'\\begin\{' + re.escape(env) + r'\}(.*?)\\end\{'
+            + re.escape(env) + r'\}', content, re.DOTALL)
         if inner:
-            store.append(
-                '$$\\begin{aligned}' + inner.group(1) + '\\end{aligned}$$')
+            body = inner.group(1)
+            # Strip blank lines that may result from \label removal
+            body = re.sub(r'\n\s*\n', '\n', body)
+            if env in _align_envs:
+                store.append(
+                    '$$\\begin{aligned}'
+                    + body + '\\end{aligned}$$')
+            else:
+                # equation, gather, multline: just $$...$$ without wrapper
+                store.append('$$' + body.strip() + '$$')
         else:
             store.append('$$' + content + '$$')
         ph = _MATH_PLACEHOLDER % counter[0]
@@ -428,17 +442,27 @@ def protect_math(text):
             + re.escape(env) + r'\}', re.DOTALL)
         text = pat.sub(lambda m, e=env: save_aligned(m, e), text)
 
-    # Inline math: $...$ (not $$)
+    # Inline math: $...$ (not $$), may span multiple lines
     text = re.sub(
-        r'(?<!\$)\$(?!\$)((?:[^$\\]|\\.)+?)\$(?!\$)', save, text)
+        r'(?<!\$)\$(?!\$)((?:[^$\\]|\\.)+?)\$(?!\$)', save, text,
+        flags=re.DOTALL)
 
     return text, store
 
 
 def restore_math(text, store):
-    """Restore math placeholders back to their original content."""
+    """Restore math placeholders back to their original content.
+
+    For inline math ($...$), collapse multi-line content onto a single line
+    so that KaTeX's renderMathInElement can parse it correctly.
+    """
     for i, math in enumerate(store):
-        text = text.replace(_MATH_PLACEHOLDER % i, math)
+        restored = math
+        # Inline math: starts with single $ (not $$)
+        if restored.startswith('$') and not restored.startswith('$$'):
+            # Collapse newlines to spaces for KaTeX compatibility
+            restored = re.sub(r'\s*\n\s*', ' ', restored)
+        text = text.replace(_MATH_PLACEHOLDER % i, restored)
     return text
 
 
@@ -663,7 +687,7 @@ def _table_repl(m):
                     'border-bottom:1px solid #e2e8f0;'
                     if i < len(data_rows) - 1 else ''
                 )
-                html += f'  <td style="padding:9px 14px;{border}">{cell}</td>\n'
+                html += f'  <td style="padding:9px 14px;text-align:center;{border}">{cell}</td>\n'
             html += '</tr>\n'
 
     html += '</tbody></table>'
@@ -697,20 +721,55 @@ def convert_tabular(text):
 # LIST CONVERSION
 # ============================================================================
 def convert_lists(text):
-    """Convert LaTeX itemize/enumerate to HTML ul/ol.
+    """Convert LaTeX itemize/enumerate/description to HTML ul/ol/dl.
 
     Handles nested lists by processing innermost first (up to 20 levels).
     """
     # Remove enumerate options like [label=(...)]
     text = re.sub(
         r'\\begin\{enumerate\}\[[^\]]*\]', r'\\begin{enumerate}', text)
+    # Remove description options like [leftmargin=2em]
+    text = re.sub(
+        r'\\begin\{description\}\[[^\]]*\]', r'\\begin{description}', text)
 
+    # --- description lists ---
+    for _ in range(20):
+        m = re.search(
+            r'\\begin\{description\}'
+            r'((?:(?!\\begin\{(?:itemize|enumerate|description)\})'
+            r'(?!\\end\{(?:itemize|enumerate|description)\}).)*?)'
+            r'\\end\{description\}',
+            text, re.DOTALL)
+        if not m:
+            break
+        content = m.group(1)
+        items = re.split(r'\\item\b', content)
+        html_items = []
+        for item in items:
+            item = item.strip()
+            if not item:
+                continue
+            # Extract optional label: \item[Label] Body
+            lm = re.match(r'^\[([^\]]*)\]\s*(.*)', item, re.DOTALL)
+            if lm:
+                label = lm.group(1).strip()
+                body = lm.group(2).strip()
+                html_items.append(f'<dt>{label}</dt>\n<dd>{body}</dd>')
+            else:
+                html_items.append(f'<dd>{item}</dd>')
+        if html_items:
+            html_list = '<dl>\n' + '\n'.join(html_items) + '\n</dl>'
+        else:
+            html_list = ''
+        text = text[:m.start()] + html_list + text[m.end():]
+
+    # --- itemize / enumerate ---
     for _ in range(20):
         # Find innermost itemize or enumerate
         m = re.search(
             r'\\begin\{(itemize|enumerate)\}'
-            r'((?:(?!\\begin\{(?:itemize|enumerate)\})'
-            r'(?!\\end\{(?:itemize|enumerate)\}).)*?)'
+            r'((?:(?!\\begin\{(?:itemize|enumerate|description)\})'
+            r'(?!\\end\{(?:itemize|enumerate|description)\}).)*?)'
             r'\\end\{\1\}',
             text, re.DOTALL)
         if not m:
@@ -1660,6 +1719,14 @@ def latex_to_html(tex_content, environments=None, proof_label='Proof',
     text = re.sub(r'\\(newpage|clearpage|cleardoublepage)\b', '', text)
     # Remove labels
     text = re.sub(r'\\label\{[^}]*\}', '', text)
+    # Convert smallmatrix variants to standard matrix (KaTeX unsupported)
+    for prefix in ('p', 'b', 'v', 'V', 'B', ''):
+        text = text.replace(
+            r'\begin{' + prefix + 'smallmatrix}',
+            r'\begin{' + prefix + 'matrix}')
+        text = text.replace(
+            r'\end{' + prefix + 'smallmatrix}',
+            r'\end{' + prefix + 'matrix}')
     # Handle texorpdfstring
     text = re.sub(
         r'\\texorpdfstring\{([^}]*)\}\{[^}]*\}', r'\1', text)
@@ -1668,6 +1735,8 @@ def latex_to_html(tex_content, environments=None, proof_label='Proof',
         r'\\definecolor\{[^}]*\}\{[^}]*\}\{[^}]*\}\s*', '', text)
     text = re.sub(r'\\renewcommand\{[^}]*\}\{[^}]*\}\s*', '', text)
     text = re.sub(r'\\setlength\{[^}]*\}\{[^}]*\}\s*', '', text)
+    # Replace \ref inside math \text{} before protecting math
+    text = re.sub(r'\\(eq)?ref\{[^}]*\}', '(?)', text)
 
     # Protect math
     text, math_store = protect_math(text)
@@ -1714,6 +1783,17 @@ def latex_to_html(tex_content, environments=None, proof_label='Proof',
         r'\\begin\{table\}\s*(?:\[[^\]]*\])?\s*(.*?)\\end\{table\}',
         _table_env_repl, text, flags=re.DOTALL)
 
+    # Alignment environments: flushright, flushleft, center
+    text = re.sub(
+        r'\\begin\{flushright\}(.*?)\\end\{flushright\}',
+        r'<div style="text-align:right">\1</div>', text, flags=re.DOTALL)
+    text = re.sub(
+        r'\\begin\{flushleft\}(.*?)\\end\{flushleft\}',
+        r'<div style="text-align:left">\1</div>', text, flags=re.DOTALL)
+    text = re.sub(
+        r'\\begin\{center\}(.*?)\\end\{center\}',
+        r'<div style="text-align:center">\1</div>', text, flags=re.DOTALL)
+
     # Convert remaining captions to styled paragraphs
     text = re.sub(r'\\centering\s*', '', text)
     text = re.sub(r'\\caption\{((?:[^{}]|\{[^{}]*\})*)\}',
@@ -1751,6 +1831,10 @@ def latex_to_html(tex_content, environments=None, proof_label='Proof',
         text = re.sub(
             r'\\underline\{((?:[^{}]|\{[^{}]*\})*)\}',
             r'<u>\1</u>', text)
+        # \textcolor{color}{text} -> text (strip color, keep content)
+        text = re.sub(
+            r'\\textcolor\{[^}]*\}\{((?:[^{}]|\{[^{}]*\})*)\}',
+            r'\1', text)
 
     # \term commands (Vietnamese glossary)
     text = re.sub(
@@ -1807,9 +1891,34 @@ def latex_to_html(tex_content, environments=None, proof_label='Proof',
     text = re.sub(
         r'\\(vspace|hspace|bigskip|medskip|smallskip)\b', '', text)
     text = re.sub(r'\\(noindent|indent)\b', '', text)
+    text = re.sub(
+        r'\\(tableofcontents|maketitle|printindex|printbibliography'
+        r'|bibliographystyle|bibliography'
+        r'|clearpage|cleardoublepage|newpage|frontmatter|mainmatter'
+        r'|backmatter|pagestyle|thispagestyle)\b(?:\{[^}]*\}|\[[^\]]*\])*',
+        '', text)
+    # Strip \begin{thebibliography}...\end{thebibliography} (old BibTeX)
+    text = re.sub(
+        r'\\begin\{thebibliography\}.*?\\end\{thebibliography\}',
+        '', text, flags=re.DOTALL)
+    # Convert \begin{quote}...\end{quote} to <blockquote>
+    text = re.sub(
+        r'\\begin\{quote\}(.*?)\\end\{quote\}',
+        r'<blockquote>\1</blockquote>', text, flags=re.DOTALL)
+    # Strip formatting commands: \itshape, \bfseries, \scshape, \upshape, etc.
+    text = re.sub(r'\\(itshape|bfseries|scshape|upshape|normalfont|sffamily'
+                  r'|rmfamily|ttfamily|mdseries|slshape)\b', '', text)
+    # \hfill -> right-align hint (use flex or just strip)
+    text = re.sub(r'\\hfill\b', '', text)
+    # \ref{...}, \eqref{...}, \autoref{...}, \cref{...} -> [?]
+    text = re.sub(r'\\(eq)?ref\{[^}]*\}', '(?)', text)
+    text = re.sub(r'\\(auto|c|name)ref\{[^}]*\}', '(?)', text)
     text = re.sub(r'\\(phantom|hphantom|vphantom)\{[^}]*\}', '', text)
     text = re.sub(r'\\renewcommand\{[^}]*\}\{[^}]*\}', '', text)
     text = re.sub(r'\\setlength\{[^}]*\}\{[^}]*\}', '', text)
+
+    # Line breaks: \\[optional spacing] -> <br>
+    text = re.sub(r'\\\\(?:\[[^\]]*\])?(?=\s)', '<br>\n', text)
 
     # Special characters
     text = text.replace('\\&', '&amp;')
@@ -1984,15 +2093,31 @@ def _clean_title_for_en(title):
     """Clean a LaTeX title string for use as an English-fallback title.
 
     Strips remaining LaTeX commands, keeps text.
+    Preserves math expressions inside $...$ and $$...$$.
     """
+    # Protect math before cleaning
+    math_phs = []
+
+    def _save(m):
+        math_phs.append(m.group(0))
+        return f'\x00M{len(math_phs) - 1}\x00'
+
+    t = re.sub(r'\$\$.*?\$\$', _save, title, flags=re.DOTALL)
+    t = re.sub(r'\$[^$]+?\$', _save, t)
+
     # Remove \texorpdfstring
-    t = re.sub(r'\\texorpdfstring\{([^}]*)\}\{[^}]*\}', r'\1', title)
+    t = re.sub(r'\\texorpdfstring\{([^}]*)\}\{[^}]*\}', r'\1', t)
     # Remove remaining \command{...} -> content
     t = re.sub(r'\\[a-zA-Z]+\{([^}]*)\}', r'\1', t)
     # Remove remaining \command
     t = re.sub(r'\\[a-zA-Z]+', '', t)
     # Clean up
     t = re.sub(r'\s+', ' ', t).strip()
+
+    # Restore math
+    for i, mp in enumerate(math_phs):
+        t = t.replace(f'\x00M{i}\x00', mp)
+
     return t if t else title
 
 
